@@ -328,11 +328,23 @@
         min-height: 44px;
         touch-action: none;
     }
-    .no-btn.fleeing {
-        position: fixed;
-    }
     .no-btn:hover {
         background: linear-gradient(135deg, #e8e0e0 0%, #d0c8c8 100%);
+    }
+
+    /* Invisible overlay that covers exactly the visible screen */
+    .flee-zone {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 20;
+        pointer-events: none;
+    }
+    .flee-zone.active { display: block; }
+    /* When button is inside flee-zone, it's absolute within the fixed overlay */
+    .flee-zone .no-btn {
+        position: absolute;
+        pointer-events: auto;
     }
 
     /* Growing Yes button animation */
@@ -535,10 +547,13 @@
 
 </div>
 
+<!-- Flee zone: fixed overlay, button moves inside this = can never leave viewport -->
+<div id="fleeZone" class="flee-zone"></div>
+
 <!-- Cat Photo Popup (replace src with your actual cat photo!) -->
 <div class="cat-popup" id="catPopup" onclick="closePopup()">
     <!-- 👇 REMPLACE le src ci-dessous par le chemin de ta vraie photo de chat ! -->
-    <img id="catImg" src="" alt="Mon chat" style="display:none;">
+    <img id="catImg" src="https://media.tenor.com/dhuQV_msfiUAAAAe/cat-gun.png" alt="Mon chat" style="display:none;">
     <div class="popup-text" id="popupText">Notre petit chat 🐱💕</div>
     <div class="popup-hint">Touche pour fermer</div>
 </div>
@@ -634,6 +649,7 @@ animateHearts();
 
 // ─── NO BUTTON LOGIC (FLEE) ───
 let locked = false;
+const fleeZone = document.getElementById('fleeZone');
 
 noBtn.addEventListener('mouseenter', () => { if (!locked) flee(); });
 noBtn.addEventListener('touchstart', (e) => {
@@ -675,7 +691,7 @@ function flee() {
         return;
     }
 
-    // ── Measure BEFORE hiding ──
+    // ── Measure button size before hiding ──
     const btnW = noBtn.offsetWidth;
     const btnH = noBtn.offsetHeight;
 
@@ -683,30 +699,31 @@ function flee() {
     noBtn.style.visibility = 'hidden';
     noBtn.style.pointerEvents = 'none';
 
-    // ── Make fixed if not already ──
-    if (!noBtn.classList.contains('fleeing')) {
-        noBtn.classList.add('fleeing');
+    // ── Move button into flee-zone overlay (first time only) ──
+    if (!fleeZone.classList.contains('active')) {
+        fleeZone.classList.add('active');
         noBtn.style.margin = '0';
+        fleeZone.appendChild(noBtn);
     }
 
-    // ── Compute safe random position (visible area only) ──
-    const pad = 40;
-    const vp = window.visualViewport || { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight, offsetLeft: 0, offsetTop: 0 };
-    const vw = vp.width;
-    const vh = vp.height;
-    const maxX = vw - btnW - pad;
-    const maxY = vh - btnH - pad;
-    const newX = Math.max(pad, Math.min(pad + Math.floor(Math.random() * Math.max(1, maxX - pad)), maxX));
-    const newY = Math.max(pad, Math.min(pad + Math.floor(Math.random() * Math.max(1, maxY - pad)), maxY));
+    // ── Random position using % of the flee-zone (= viewport) ──
+    // flee-zone is position:fixed inset:0, so 100% = full viewport
+    const padX = 40;
+    const padY = 40;
+    const zoneW = fleeZone.offsetWidth;
+    const zoneH = fleeZone.offsetHeight;
+    const maxX = zoneW - btnW - padX;
+    const maxY = zoneH - btnH - padY;
+    const newX = padX + Math.floor(Math.random() * Math.max(1, maxX - padX));
+    const newY = padY + Math.floor(Math.random() * Math.max(1, maxY - padY));
 
     noBtn.style.left = newX + 'px';
     noBtn.style.top = newY + 'px';
 
-    // ── Show after delay, unlock after another delay ──
+    // ── Show after delay ──
     setTimeout(() => {
         noBtn.style.visibility = 'visible';
         noBtn.style.pointerEvents = '';
-        // Extra grace period so cursor settling doesn't re-trigger
         setTimeout(() => { locked = false; }, 400);
     }, 250);
 }
