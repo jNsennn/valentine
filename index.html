@@ -2,13 +2,14 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Veux-tu être ma Valentine ? 💕</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
 
     :root {
         --pink-hot: #ff2d6f;
@@ -25,7 +26,7 @@
 
     body {
         font-family: 'Quicksand', sans-serif;
-        min-height: 100vh;
+        height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -688,14 +689,15 @@ function flee() {
         noBtn.style.margin = '0';
     }
 
-    // ── Compute safe random position ──
-    const pad = 30;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    // ── Compute safe random position (visible area only) ──
+    const pad = 40;
+    const vp = window.visualViewport || { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight, offsetLeft: 0, offsetTop: 0 };
+    const vw = vp.width;
+    const vh = vp.height;
     const maxX = vw - btnW - pad;
     const maxY = vh - btnH - pad;
-    const newX = pad + Math.floor(Math.random() * Math.max(1, maxX - pad));
-    const newY = pad + Math.floor(Math.random() * Math.max(1, maxY - pad));
+    const newX = Math.max(pad, Math.min(pad + Math.floor(Math.random() * Math.max(1, maxX - pad)), maxX));
+    const newY = Math.max(pad, Math.min(pad + Math.floor(Math.random() * Math.max(1, maxY - pad)), maxY));
 
     noBtn.style.left = newX + 'px';
     noBtn.style.top = newY + 'px';
