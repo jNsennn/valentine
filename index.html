@@ -322,7 +322,6 @@
         background: linear-gradient(135deg, #f0e8e8 0%, #ddd4d4 100%);
         color: #999;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-        transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease;
         z-index: 20;
         min-width: 44px;
         min-height: 44px;
@@ -330,13 +329,6 @@
     }
     .no-btn.fleeing {
         position: fixed;
-    }
-    .no-btn.hidden { opacity: 0; pointer-events: none; }
-    .no-btn.pop { animation: btnPop 0.3s ease; }
-    @keyframes btnPop {
-        0% { transform: scale(0); }
-        60% { transform: scale(1.15); }
-        100% { transform: scale(1); }
     }
     .no-btn:hover {
         background: linear-gradient(135deg, #e8e0e0 0%, #d0c8c8 100%);
@@ -640,95 +632,81 @@ function animateHearts() {
 animateHearts();
 
 // ─── NO BUTTON LOGIC (FLEE) ───
-let isFloating = false;
-let isFleeing = false;
+let locked = false;
 
-noBtn.addEventListener('mouseenter', () => { if (!isFleeing) fleeButton(); });
+noBtn.addEventListener('mouseenter', () => { if (!locked) flee(); });
 noBtn.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (!isFleeing) fleeButton();
+    if (!locked) flee();
 }, { passive: false });
 
-function fleeButton() {
-    if (noCount >= 3 || isFleeing) return;
-    isFleeing = true;
+function flee() {
+    if (locked || noCount >= 3) return;
+    locked = true;
     noCount++;
 
-    // Update text & subtitle
+    // ── Text updates ──
     const texts = ["Raté ! 😜", "Trop lent ! 🐱", "Bon, regarde ça... 😿"];
-    noBtnText.textContent = texts[Math.min(noCount - 1, texts.length - 1)];
     const subs = [
         "🐱 Hehe, essaie encore !",
         "🐱 Le chat est trop rapide !",
         "😿 Le chat veut te montrer quelque chose..."
     ];
-    subtitle.textContent = subs[Math.min(noCount - 1, subs.length - 1)];
-
+    noBtnText.textContent = texts[noCount - 1] || texts[texts.length - 1];
+    subtitle.textContent = subs[noCount - 1] || subs[subs.length - 1];
     if (noCount >= 2) catChar.className = 'cat sad';
 
-    // Grow YES button
+    // ── Grow Yes ──
     yesBtnScale += 0.12;
     yesBtn.style.transform = `scale(${yesBtnScale})`;
-    yesBtn.classList.add('growing');
-    setTimeout(() => yesBtn.classList.remove('growing'), 400);
 
-    // Shake container
+    // ── Shake ──
     container.classList.add('shake');
     setTimeout(() => container.classList.remove('shake'), 500);
 
-    // Add hearts
+    // ── Extra hearts ──
     for (let i = 0; i < 3; i++) hearts.push(new Heart());
 
+    // ── 3rd attempt = popup ──
     if (noCount >= 3) {
-        // 3rd attempt → hide button, show cat popup
-        noBtn.classList.add('hidden');
-        setTimeout(() => {
-            noBtn.style.display = 'none';
-            showCatPopup();
-            isFleeing = false;
-        }, 300);
+        noBtn.style.display = 'none';
+        showCatPopup();
         return;
     }
 
-    // ─── STEP 1: Hide button instantly ───
-    noBtn.classList.add('hidden');
+    // ── Measure BEFORE hiding ──
+    const btnW = noBtn.offsetWidth;
+    const btnH = noBtn.offsetHeight;
 
-    // ─── STEP 2: After short delay, teleport to new safe position ───
+    // ── Hide instantly ──
+    noBtn.style.visibility = 'hidden';
+    noBtn.style.pointerEvents = 'none';
+
+    // ── Make fixed if not already ──
+    if (!noBtn.classList.contains('fleeing')) {
+        noBtn.classList.add('fleeing');
+        noBtn.style.margin = '0';
+    }
+
+    // ── Compute safe random position ──
+    const pad = 30;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const maxX = vw - btnW - pad;
+    const maxY = vh - btnH - pad;
+    const newX = pad + Math.floor(Math.random() * Math.max(1, maxX - pad));
+    const newY = pad + Math.floor(Math.random() * Math.max(1, maxY - pad));
+
+    noBtn.style.left = newX + 'px';
+    noBtn.style.top = newY + 'px';
+
+    // ── Show after delay, unlock after another delay ──
     setTimeout(() => {
-        const padding = 30;
-        const btnW = noBtn.offsetWidth;
-        const btnH = noBtn.offsetHeight;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-
-        if (!isFloating) {
-            noBtn.classList.add('fleeing');
-            noBtn.style.margin = '0';
-            isFloating = true;
-        }
-
-        // Safe bounds
-        const safeMaxX = vw - btnW - padding;
-        const safeMaxY = vh - btnH - padding;
-
-        // Pick random position within safe area
-        const newX = padding + Math.random() * Math.max(0, safeMaxX - padding);
-        const newY = padding + Math.random() * Math.max(0, safeMaxY - padding);
-
-        noBtn.style.left = Math.round(newX) + 'px';
-        noBtn.style.top = Math.round(newY) + 'px';
-
-        // ─── STEP 3: Show button with pop animation ───
-        setTimeout(() => {
-            noBtn.classList.remove('hidden');
-            noBtn.classList.add('pop');
-            setTimeout(() => {
-                noBtn.classList.remove('pop');
-                isFleeing = false; // ready for next interaction
-            }, 350);
-        }, 100);
-
-    }, 150);
+        noBtn.style.visibility = 'visible';
+        noBtn.style.pointerEvents = '';
+        // Extra grace period so cursor settling doesn't re-trigger
+        setTimeout(() => { locked = false; }, 400);
+    }, 250);
 }
 
 function showCatPopup() {
