@@ -637,24 +637,25 @@ animateHearts();
 
 // ─── NO BUTTON LOGIC (FLEE) ───
 let isFloating = false;
-let fleeTimeout = false; // debounce
+let fleeCooldown = false; // prevent rapid re-triggers
 
-// Attach events properly — prevent ghost clicks on mobile
-noBtn.addEventListener('mouseenter', (e) => {
-    // Ignore mouseenter that fires right after touchstart on mobile
-    if (fleeTimeout) return;
+noBtn.addEventListener('mouseenter', () => {
+    if (fleeCooldown) return;
     fleeButton();
 });
 noBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // prevent scroll + ghost mouseenter
-    fleeTimeout = true;
+    e.preventDefault();
+    if (fleeCooldown) return;
     fleeButton();
-    setTimeout(() => { fleeTimeout = false; }, 300);
 }, { passive: false });
 
 function fleeButton() {
-    if (noCount >= 3) return; // Already triggered popup
+    if (noCount >= 3) return;
     noCount++;
+
+    // Cooldown — ignore events for 500ms after flee
+    fleeCooldown = true;
+    setTimeout(() => { fleeCooldown = false; }, 500);
 
     // Update text & subtitle
     const texts = ["Raté ! 😜", "Trop lent ! 🐱", "Bon, regarde ça... 😿"];
@@ -729,6 +730,10 @@ function fleeButton() {
 
     noBtn.style.left = newX + 'px';
     noBtn.style.top = newY + 'px';
+
+    // Disable pointer during transition so mouseenter can't re-fire mid-flight
+    noBtn.style.pointerEvents = 'none';
+    setTimeout(() => { noBtn.style.pointerEvents = 'auto'; }, 400);
 }
 
 function showCatPopup() {
