@@ -322,17 +322,21 @@
         background: linear-gradient(135deg, #f0e8e8 0%, #ddd4d4 100%);
         color: #999;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
-        transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                    top 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-                    transform 0.3s ease,
-                    opacity 0.3s ease;
+        transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease;
         z-index: 20;
         min-width: 44px;
         min-height: 44px;
-        touch-action: none; /* prevent browser gestures on button */
+        touch-action: none;
     }
     .no-btn.fleeing {
         position: fixed;
+    }
+    .no-btn.hidden { opacity: 0; pointer-events: none; }
+    .no-btn.pop { animation: btnPop 0.3s ease; }
+    @keyframes btnPop {
+        0% { transform: scale(0); }
+        60% { transform: scale(1.15); }
+        100% { transform: scale(1); }
     }
     .no-btn:hover {
         background: linear-gradient(135deg, #e8e0e0 0%, #d0c8c8 100%);
@@ -637,25 +641,18 @@ animateHearts();
 
 // ─── NO BUTTON LOGIC (FLEE) ───
 let isFloating = false;
-let fleeCooldown = false; // prevent rapid re-triggers
+let isFleeing = false;
 
-noBtn.addEventListener('mouseenter', () => {
-    if (fleeCooldown) return;
-    fleeButton();
-});
+noBtn.addEventListener('mouseenter', () => { if (!isFleeing) fleeButton(); });
 noBtn.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    if (fleeCooldown) return;
-    fleeButton();
+    if (!isFleeing) fleeButton();
 }, { passive: false });
 
 function fleeButton() {
-    if (noCount >= 3) return;
+    if (noCount >= 3 || isFleeing) return;
+    isFleeing = true;
     noCount++;
-
-    // Cooldown — ignore events for 500ms after flee
-    fleeCooldown = true;
-    setTimeout(() => { fleeCooldown = false; }, 500);
 
     // Update text & subtitle
     const texts = ["Raté ! 😜", "Trop lent ! 🐱", "Bon, regarde ça... 😿"];
@@ -667,7 +664,6 @@ function fleeButton() {
     ];
     subtitle.textContent = subs[Math.min(noCount - 1, subs.length - 1)];
 
-    // Make cat react
     if (noCount >= 2) catChar.className = 'cat sad';
 
     // Grow YES button
@@ -684,56 +680,55 @@ function fleeButton() {
     for (let i = 0; i < 3; i++) hearts.push(new Heart());
 
     if (noCount >= 3) {
-        // After 2 flees → 3rd attempt shows cat popup
+        // 3rd attempt → hide button, show cat popup
+        noBtn.classList.add('hidden');
         setTimeout(() => {
             noBtn.style.display = 'none';
             showCatPopup();
-        }, 400);
+            isFleeing = false;
+        }, 300);
         return;
     }
 
-    // ─── Flee to random position (stay within viewport) ───
-    const margin = 15;
-    const btnW = noBtn.offsetWidth;
-    const btnH = noBtn.offsetHeight;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    // ─── STEP 1: Hide button instantly ───
+    noBtn.classList.add('hidden');
 
-    if (!isFloating) {
-        // Switch to fixed positioning
-        const rect = noBtn.getBoundingClientRect();
-        noBtn.classList.add('fleeing');
-        noBtn.style.left = Math.min(rect.left, vw - btnW - margin) + 'px';
-        noBtn.style.top = Math.min(rect.top, vh - btnH - margin) + 'px';
-        noBtn.style.margin = '0';
-        isFloating = true;
-    }
+    // ─── STEP 2: After short delay, teleport to new safe position ───
+    setTimeout(() => {
+        const padding = 30;
+        const btnW = noBtn.offsetWidth;
+        const btnH = noBtn.offsetHeight;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
 
-    const maxX = vw - btnW - margin;
-    const maxY = vh - btnH - margin;
+        if (!isFloating) {
+            noBtn.classList.add('fleeing');
+            noBtn.style.margin = '0';
+            isFloating = true;
+        }
 
-    // Random position, far enough from current pos, clamped to viewport
-    let newX, newY, attempts = 0;
-    const curX = parseFloat(noBtn.style.left) || 0;
-    const curY = parseFloat(noBtn.style.top) || 0;
-    const minDist = Math.min(120, Math.min(vw, vh) * 0.25); // adapt to screen size
+        // Safe bounds
+        const safeMaxX = vw - btnW - padding;
+        const safeMaxY = vh - btnH - padding;
 
-    do {
-        newX = margin + Math.random() * Math.max(0, maxX - margin);
-        newY = margin + Math.random() * Math.max(0, maxY - margin);
-        attempts++;
-    } while (Math.hypot(newX - curX, newY - curY) < minDist && attempts < 30);
+        // Pick random position within safe area
+        const newX = padding + Math.random() * Math.max(0, safeMaxX - padding);
+        const newY = padding + Math.random() * Math.max(0, safeMaxY - padding);
 
-    // Clamp to safe bounds
-    newX = Math.max(margin, Math.min(newX, maxX));
-    newY = Math.max(margin, Math.min(newY, maxY));
+        noBtn.style.left = Math.round(newX) + 'px';
+        noBtn.style.top = Math.round(newY) + 'px';
 
-    noBtn.style.left = newX + 'px';
-    noBtn.style.top = newY + 'px';
+        // ─── STEP 3: Show button with pop animation ───
+        setTimeout(() => {
+            noBtn.classList.remove('hidden');
+            noBtn.classList.add('pop');
+            setTimeout(() => {
+                noBtn.classList.remove('pop');
+                isFleeing = false; // ready for next interaction
+            }, 350);
+        }, 100);
 
-    // Disable pointer during transition so mouseenter can't re-fire mid-flight
-    noBtn.style.pointerEvents = 'none';
-    setTimeout(() => { noBtn.style.pointerEvents = 'auto'; }, 400);
+    }, 150);
 }
 
 function showCatPopup() {
